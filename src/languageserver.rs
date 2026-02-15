@@ -25,7 +25,7 @@ use crate::utils::treehelper::ToPosition;
 use crate::utils::{VCPKG_LIBS, VCPKG_PREFIX, did_vcpkg_project, treehelper};
 use crate::{
     BackendInitInfo, ast, complete, document_link, fileapi, filewatcher, hover, jump, quick_fix,
-    rename, scansubs, semantic_token, utils,
+    rename, scanner, scansubs, semantic_token, signature_help, utils,
 };
 
 static CLIENT_CAPABILITIES: RwLock<Option<TextDocumentClientCapabilities>> = RwLock::new(None);
@@ -195,7 +195,6 @@ impl LanguageServer for Backend {
                 watch_file.relative_pattern_support,
             )
         {
-            // NOTE: I think it only contains one workspace
             if let Some(ref top_path) = initial
                 .workspace_folders
                 .as_ref()
@@ -253,7 +252,7 @@ impl LanguageServer for Backend {
         let version: String = env!("CARGO_PKG_VERSION").to_string();
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
-                name: "neocmakelsp".to_string(),
+                name: "neocmakelsp-fast".to_string(),
                 version: Some(version),
             }),
             capabilities: ServerCapabilities {
@@ -270,10 +269,15 @@ impl LanguageServer for Backend {
                 )),
                 completion_provider: Some(CompletionOptions {
                     resolve_provider: Some(false),
-                    trigger_characters: None,
+                    trigger_characters: Some(vec!["/".to_string(), ".".to_string()]),
                     work_done_progress_options: Default::default(),
                     all_commit_characters: None,
                     completion_item: None,
+                }),
+                signature_help_provider: Some(SignatureHelpOptions {
+                    trigger_characters: Some(vec!["(".to_string(), ",".to_string()]),
+                    retrigger_characters: Some(vec![",".to_string(), " ".to_string()]),
+                    work_done_progress_options: Default::default(),
                 }),
                 document_symbol_provider: Some(OneOf::Left(true)),
                 definition_provider: Some(OneOf::Left(true)),
@@ -379,6 +383,14 @@ impl LanguageServer for Backend {
                 .report_with_message(&format!("start scanning {}", project_root.display()), 10)
                 .await;
             scansubs::scan_all(&project_root, true).await;
+
+            progress
+                .report_with_message("Initializing file watcher", 15)
+                .await;
+            if scanner::init_file_watcher().is_some() {
+                scanner::watch_workspace(project_root);
+                tracing::info!("File watcher initialized for workspace");
+            }
             let build_dir = project_root.join("build");
             if build_dir.is_dir()
                 && let Some(query) = &*DEFAULT_QUERY
@@ -395,7 +407,6 @@ impl LanguageServer for Backend {
                 #[cfg(unix)]
                 {
                     use crate::utils::packagepkgconfig::QUERYSRULES;
-                    // When it is found to be a vcpkg project, the pc will be searched first from the vcpkg download directory.
                     QUERYSRULES.lock().unwrap().insert(
                         0,
                         Box::leak(
@@ -405,7 +416,6 @@ impl LanguageServer for Backend {
                     );
                 }
 
-                // add vcpkg prefix
                 VCPKG_PREFIX.lock().unwrap().push(Box::leak(
                     vcpkg_installed_path
                         .to_str()
@@ -438,14 +448,18 @@ impl LanguageServer for Backend {
             .report_with_message("Start init system modules", 70)
             .await;
         complete::init_system_modules();
+        progress
+            .report_with_message("Start init signature help", 80)
+            .await;
+        signature_help::init_signatures();
         progress.report_with_message("Scan finished", 100).await;
         progress.finish().await;
     }
 
     async fn shutdown(&self) -> Result<()> {
-        // NOTE: do nothing
-        // Seems tower_lsp won't do anything when receive this command.
-        // Now it should be proper for me to directly exit(0) here
+        if let Some(watcher) = scanner::get_file_watcher() {
+            watcher.shutdown();
+        }
         exit(0)
     }
 
@@ -630,6 +644,18 @@ impl LanguageServer for Backend {
             })),
             None => Ok(None),
         }
+    }
+
+    async fn signature_help(
+        &self,
+        params: SignatureHelpParams,
+    ) -> Result<Option<SignatureHelp>> {
+        let position = params.text_document_position_params.position;
+        let uri = params.text_document_position_params.text_document.uri;
+        let Some(text) = self.documents.get(&uri) else {
+            return Ok(None);
+        };
+        Ok(signature_help::get_signature_help(&text, position))
     }
 
     async fn formatting(&self, input: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {

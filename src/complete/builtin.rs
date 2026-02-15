@@ -8,72 +8,6 @@ use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, Documentation, In
 
 use crate::languageserver::to_use_snippet;
 
-fn shorter_var(arg: &str) -> String {
-    let mut shorter = arg.to_string();
-    let args = arg.split('\n').next().unwrap_or("");
-    if args.len() > 20 {
-        shorter = format!("{}...", &args[0..20]);
-    }
-    if shorter.contains(' ') {
-        shorter = format!("(arg_type: <{shorter}>)");
-    }
-    shorter = format!("<{shorter}>");
-    shorter
-}
-
-fn handle_sharp_bracket(arg: &str) -> &str {
-    let left_unique = arg.starts_with("<");
-    let right_unique = arg.ends_with(">");
-    match (left_unique, right_unique) {
-        (true, true) => &arg[1..arg.len() - 1],
-        (true, false) => &arg[1..],
-        (false, true) => &arg[..arg.len() - 1],
-        (false, false) => arg,
-    }
-}
-
-fn handle_square_bracket(arg: &str) -> &str {
-    let left_unique = arg.starts_with("[");
-    let right_unique = arg.ends_with("]");
-    match (left_unique, right_unique) {
-        (true, true) => &arg[1..arg.len() - 1],
-        (true, false) => &arg[1..],
-        (false, true) => &arg[..arg.len() - 1],
-        (false, false) => arg,
-    }
-}
-
-static SNIPPET_GEN_REGEX: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"<[^>]+>").unwrap());
-
-fn convert_to_lsp_snippet(input: &str) -> String {
-    let mut result = String::new();
-    let mut last_pos = 0; // Keep track of the last match position
-    let mut i = 1;
-    for caps in SNIPPET_GEN_REGEX.captures_iter(input) {
-        if let Some(matched) = caps.get(0) {
-            let var_name_pre = matched.as_str(); // Extract captured variable
-            let var_name_pre2 = handle_sharp_bracket(var_name_pre);
-            let var_name_pre3 = handle_square_bracket(var_name_pre2);
-            let var_name = shorter_var(var_name_pre3);
-
-            // Add text before the match
-            result.push_str(&input[last_pos..matched.start()]);
-
-            // Replace the variable
-            result.push_str(&format!("${{{i}:{var_name}}}"));
-            // Update last position to after this match
-            last_pos = matched.end();
-            i += 1;
-        }
-    }
-
-    // Add remaining part of the string
-    result.push_str(&input[last_pos..]);
-
-    result
-}
-
 fn gen_builtin_commands(raw_info: &str) -> Result<Vec<CompletionItem>> {
     let re = regex::Regex::new(r"[a-zA-z]+\n-+").unwrap();
     let keys: Vec<_> = re
@@ -110,35 +44,35 @@ fn gen_builtin_commands(raw_info: &str) -> Result<Vec<CompletionItem>> {
     Ok(completes
         .iter()
         .map(|(akey, message)| {
-            let mut insert_text_format = InsertTextFormat::PLAIN_TEXT;
-            let mut insert_text = akey.to_string();
-            let mut detail = "Function".to_string();
-            let s = format!(r"\n\s+(?P<signature>{akey}\([^)]*\))");
-            let r_match_signature = regex::Regex::new(s.as_str()).unwrap();
-
-            // snippets only work for lower case for now...
-            if client_support_snippet
-                && insert_text
-                    .chars()
-                    .all(|c| c.is_ascii_lowercase() || c == '_')
+            // Simple snippet: just add parentheses with cursor inside
+            let (insert_text, insert_text_format) = if client_support_snippet
+                && akey.chars().all(|c| c.is_ascii_lowercase() || c == '_')
             {
-                insert_text = match r_match_signature.captures(message) {
-                    Some(m) => {
-                        insert_text_format = InsertTextFormat::SNIPPET;
-                        detail += " (Snippet)";
-                        convert_to_lsp_snippet(m.name("signature").unwrap().as_str())
-                    }
-                    _ => akey.to_string(),
-                }
-            }
+                (
+                    Some(format!("{}($0)", akey)),
+                    Some(InsertTextFormat::SNIPPET),
+                )
+            } else {
+                (Some(akey.to_string()), Some(InsertTextFormat::PLAIN_TEXT))
+            };
+
+            // Prioritize lowercase commands (sort_text "0_" prefix) over uppercase ("1_" prefix)
+            let is_lowercase = akey.chars().all(|c| c.is_ascii_lowercase() || c == '_');
+            let sort_text = if is_lowercase {
+                format!("0_{akey}")
+            } else {
+                format!("1_{akey}")
+            };
 
             CompletionItem {
                 label: akey.to_string(),
                 kind: Some(CompletionItemKind::FUNCTION),
-                detail: Some(detail),
+                detail: Some("Function".to_string()),
                 documentation: Some(Documentation::String(message.trim().to_string())),
-                insert_text: Some(insert_text),
-                insert_text_format: Some(insert_text_format),
+                insert_text,
+                insert_text_format,
+                sort_text: Some(sort_text),
+                filter_text: Some(akey.to_lowercase()),
                 ..Default::default()
             }
         })
@@ -222,23 +156,6 @@ mod tests {
 
     use super::*;
     use crate::complete::builtin::{gen_builtin_modules, gen_builtin_variables};
-
-    #[test]
-    fn test_convert_to_lsp_snippet() {
-        let snippet_example = r#"define_property(<GLOBAL | DIRECTORY | TARGET | SOURCE |
-                  TEST | VARIABLE | CACHED_VARIABLE>
-                  PROPERTY <name> [INHERITED]
-                  [BRIEF_DOCS <brief-doc> [docs...]]
-                  [FULL_DOCS <full-doc> [docs...]]
-                  [INITIALIZE_FROM_VARIABLE <variable>])"#;
-        let snippet_result = convert_to_lsp_snippet(snippet_example);
-        let snippet_target = r#"define_property(${1:<(arg_type: <GLOBAL | DIRECTORY |...>)>}
-                  PROPERTY ${2:<name>} [INHERITED]
-                  [BRIEF_DOCS ${3:<brief-doc>} [docs...]]
-                  [FULL_DOCS ${4:<full-doc>} [docs...]]
-                  [INITIALIZE_FROM_VARIABLE ${5:<variable>}])"#;
-        assert_eq!(snippet_result, snippet_target);
-    }
 
     #[test]
     fn test_regex() {

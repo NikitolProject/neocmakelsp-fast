@@ -10,7 +10,7 @@ pub struct Config {
     pub semantic_token: bool,
     #[serde(default)]
     pub lint: LintConfig,
-    #[serde(default)]
+    #[serde(default = "default_enable")]
     pub use_snippets: bool,
 }
 
@@ -87,7 +87,7 @@ mod test {
         let data = r#"{}"#;
         let config: Config = serde_json::from_str(data).unwrap();
         assert!(config.scan_cmake_in_package);
-        assert!(!config.use_snippets);
+        assert!(config.use_snippets);
         assert!(config.is_lint_enabled());
         assert!(config.is_format_enabled());
     }

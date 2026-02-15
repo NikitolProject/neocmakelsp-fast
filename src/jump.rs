@@ -257,6 +257,8 @@ async fn godef_inner<P: AsRef<Path>>(
             let fixed_url = replace_placeholders(tofind)?;
             subdirectory::cmpsubdirectory(originuri, &fixed_url)
         }
+        // Path completion types - no jump behavior
+        PositionType::SourceFile | PositionType::AnyFile | PositionType::Directory => None,
     }
 }
 

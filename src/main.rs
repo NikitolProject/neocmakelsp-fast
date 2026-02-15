@@ -26,9 +26,11 @@ mod jump;
 mod languageserver;
 mod quick_fix;
 mod rename;
+mod scanner;
 mod scansubs;
 mod search;
 mod semantic_token;
+mod signature_help;
 mod utils;
 use std::sync::OnceLock;
 

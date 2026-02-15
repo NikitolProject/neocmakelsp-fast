@@ -30,10 +30,11 @@ const LIBS: &[Cow<'_, str>] = &[
     Cow::Borrowed("share"),
 ];
 
-/// Used to query system information like platform specific paths.
 static CMAKE_SYSTEM_INFORMATION: LazyLock<Option<String>> = LazyLock::new(|| {
+    let temp_dir = tempfile::tempdir().ok()?;
     let output = Command::new("cmake")
         .arg("--system-information")
+        .current_dir(temp_dir.path())
         .output()
         .ok()?;
     if !output.status.success() {
@@ -82,7 +83,6 @@ fn query_cmake_prefixes_or(default: Vec<String>) -> Vec<String> {
         Some(prefixes) => prefixes,
         None => {
             let mut prefix_paths = default;
-            // Add platform specific prefixes from the environment
             if let Some(prefix) = get_env_prefix() {
                 prefix_paths.push(prefix);
             }
@@ -99,8 +99,6 @@ fn query_cmake_prefixes() -> Option<Vec<String>> {
     })?;
     let (_, prefix_paths) = line.split_once(" ")?;
     let prefix_paths = prefix_paths.trim_matches('"');
-    // FIXME: This likely contains duplicate entries of '/usr/local' on most systems
-    // This could be solved by using Itertools::unique()
     let prefix_paths: Vec<String> = prefix_paths.split(";").map(String::from).collect();
 
     if !prefix_paths.is_empty() {
@@ -110,8 +108,6 @@ fn query_cmake_prefixes() -> Option<Vec<String>> {
     }
 }
 
-/// Returns the value of `CMAKE_LIBRARY_ARCHITECTURE` reported by `cmake --system-information`, if
-/// it's set.
 fn get_library_architecture() -> Option<String> {
     CMAKE_SYSTEM_INFORMATION
         .as_ref()
@@ -144,14 +140,12 @@ fn get_cmake_message() -> HashMap<String, CMakePackage> {
     get_cmake_message_with_prefixes(&CMAKE_PREFIXES)
 }
 
-// match file xx.cmake and CMakeLists.txt
 static CMAKEREGEX: LazyLock<regex::Regex> =
     LazyLock::new(|| regex::Regex::new(r"^.+\.cmake$|CMakeLists.txt$").unwrap());
 
-// config file
 static CMAKECONFIG: LazyLock<regex::Regex> =
     LazyLock::new(|| regex::Regex::new(r"^*Config.cmake$|^*-config.cmake$").unwrap());
-// config version file
+
 static CMAKECONFIGVERSION: LazyLock<regex::Regex> =
     LazyLock::new(|| regex::Regex::new(r"^*ConfigVersion.cmake$").unwrap());
 
@@ -218,8 +212,6 @@ impl FindPackageFunsTrait for FindPackageFunsFake {
     }
 }
 
-// NOTE:This is the real function to find package
-// To use trait is to make it possible to moc the logic
 #[derive(Debug, Clone, Copy)]
 pub struct FindPackageFunsReal;
 

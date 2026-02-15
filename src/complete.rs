@@ -1,6 +1,7 @@
 mod builtin;
 mod findpackage;
 mod includescanner;
+mod path_complete;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
@@ -9,12 +10,12 @@ use builtin::{BUILTIN_COMMAND, BUILTIN_MODULE, BUILTIN_VARIABLE};
 use dashmap::DashMap;
 use tokio::sync::Mutex;
 use tower_lsp::lsp_types::{
-    CompletionItem, CompletionItemKind, CompletionResponse, Documentation, MessageType, Position,
-    Uri,
+    CompletionItem, CompletionItemKind, CompletionResponse, Documentation, InsertTextFormat,
+    MessageType, Position, Uri,
 };
 
 use crate::consts::TREESITTER_CMAKE_LANGUAGE;
-use crate::languageserver::get_or_update_buffer_contents;
+use crate::languageserver::{get_or_update_buffer_contents, to_use_snippet};
 use crate::scansubs::TREE_MAP;
 use crate::utils::treehelper::{PositionType, ToPoint, get_pos_type};
 use crate::utils::{
@@ -141,34 +142,48 @@ pub async fn getcomplete<P: AsRef<Path>>(
         | PositionType::TargetLink
         | PositionType::TargetInclude
         | PositionType::ArgumentOrList => {
-            let mut cached_completion = get_cached_completion(local_path, documents).await;
-            if !cached_completion.is_empty() {
-                complete.append(&mut cached_completion);
-            }
-            if let Some(mut cmake_cache) = fileapi::get_complete_data() {
-                complete.append(&mut cmake_cache);
-            }
-            if let Some(mut message) = getsubcomplete(
-                tree.root_node(),
-                &source.lines().collect(),
-                Path::new(local_path),
-                postype,
-                Some(location),
-                &mut Vec::new(),
-                &mut Vec::new(),
-                true,
-                find_cmake_in_package,
-            ) {
-                complete.append(&mut message);
-            }
+            // Check if input looks like a path - if so, return ONLY path completions
+            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+            if path_complete::looks_like_path(&partial_info.path) {
+                let mut path_completions = path_complete::get_any_file_completions(
+                    local_path,
+                    &partial_info,
+                    location.line,
+                    location.character,
+                );
+                complete.append(&mut path_completions);
+                // Don't add other completions when user is typing a path
+            } else {
+                // Normal completions (not a path)
+                let mut cached_completion = get_cached_completion(local_path, documents).await;
+                if !cached_completion.is_empty() {
+                    complete.append(&mut cached_completion);
+                }
+                if let Some(mut cmake_cache) = fileapi::get_complete_data() {
+                    complete.append(&mut cmake_cache);
+                }
+                if let Some(mut message) = getsubcomplete(
+                    tree.root_node(),
+                    &source.lines().collect(),
+                    Path::new(local_path),
+                    postype,
+                    Some(location),
+                    &mut Vec::new(),
+                    &mut Vec::new(),
+                    true,
+                    find_cmake_in_package,
+                ) {
+                    complete.append(&mut message);
+                }
 
-            if let Ok(messages) = &*BUILTIN_COMMAND
-                && !matches!(postype, PositionType::ArgumentOrList)
-            {
-                complete.append(&mut messages.clone());
-            }
-            if let Ok(messages) = &*BUILTIN_VARIABLE {
-                complete.append(&mut messages.clone());
+                if let Ok(messages) = &*BUILTIN_COMMAND
+                    && !matches!(postype, PositionType::ArgumentOrList)
+                {
+                    complete.append(&mut messages.clone());
+                }
+                if let Ok(messages) = &*BUILTIN_VARIABLE {
+                    complete.append(&mut messages.clone());
+                }
             }
         }
         PositionType::FindPackageSpace(space) => {
@@ -182,22 +197,183 @@ pub async fn getcomplete<P: AsRef<Path>>(
             complete.append(&mut findpackage::PKGCONFIG_SOURCE.clone());
         }
         PositionType::Include => {
-            let mut cached_completion = get_cached_completion(local_path, documents).await;
-            if !cached_completion.is_empty() {
-                complete.append(&mut cached_completion);
+            // Get partial path from current position
+            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+
+            // If input looks like a path, show ONLY path completions
+            if path_complete::looks_like_path(&partial_info.path) {
+                let mut path_completions = path_complete::get_include_path_completions(
+                    local_path,
+                    &partial_info,
+                    location.line,
+                    location.character,
+                );
+                complete.append(&mut path_completions);
+            } else {
+                // Show path completions for empty input
+                if partial_info.path.is_empty() {
+                    let mut path_completions = path_complete::get_include_path_completions(
+                        local_path,
+                        &partial_info,
+                        location.line,
+                        location.character,
+                    );
+                    complete.append(&mut path_completions);
+                }
+                // Also add cached completions and builtin modules
+                let mut cached_completion = get_cached_completion(local_path, documents).await;
+                if !cached_completion.is_empty() {
+                    complete.append(&mut cached_completion);
+                }
+                if let Some(mut cmake_cache) = fileapi::get_complete_data() {
+                    complete.append(&mut cmake_cache);
+                }
+                if let Ok(messages) = &*BUILTIN_MODULE {
+                    complete.append(&mut messages.clone());
+                }
             }
-            if let Some(mut cmake_cache) = fileapi::get_complete_data() {
-                complete.append(&mut cmake_cache);
+        }
+        PositionType::SubDir => {
+            // Get partial path from current position
+            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+
+            // Add directory completions
+            let mut path_completions = path_complete::get_subdirectory_completions(
+                local_path,
+                &partial_info,
+                location.line,
+                location.character,
+            );
+            complete.append(&mut path_completions);
+        }
+        PositionType::SourceFile => {
+            // Get partial path from current position
+            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+
+            // If input looks like a path, show ONLY path completions
+            if path_complete::looks_like_path(&partial_info.path) {
+                let mut path_completions = path_complete::get_source_file_completions(
+                    local_path,
+                    &partial_info,
+                    location.line,
+                    location.character,
+                );
+                complete.append(&mut path_completions);
+            } else {
+                // Show path completions for empty input
+                if partial_info.path.is_empty() {
+                    let mut path_completions = path_complete::get_source_file_completions(
+                        local_path,
+                        &partial_info,
+                        location.line,
+                        location.character,
+                    );
+                    complete.append(&mut path_completions);
+                }
+                // Also add regular completions (variables, etc.)
+                let mut cached_completion = get_cached_completion(local_path, documents).await;
+                if !cached_completion.is_empty() {
+                    complete.append(&mut cached_completion);
+                }
+                if let Some(mut cmake_cache) = fileapi::get_complete_data() {
+                    complete.append(&mut cmake_cache);
+                }
+                if let Ok(messages) = &*BUILTIN_VARIABLE {
+                    complete.append(&mut messages.clone());
+                }
             }
-            if let Ok(messages) = &*BUILTIN_MODULE {
-                complete.append(&mut messages.clone());
+        }
+        PositionType::AnyFile => {
+            // Get partial path from current position
+            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+
+            // If input looks like a path, show ONLY path completions
+            if path_complete::looks_like_path(&partial_info.path) {
+                let mut path_completions = path_complete::get_any_file_completions(
+                    local_path,
+                    &partial_info,
+                    location.line,
+                    location.character,
+                );
+                complete.append(&mut path_completions);
+            } else {
+                // Show path completions for empty input
+                if partial_info.path.is_empty() {
+                    let mut path_completions = path_complete::get_any_file_completions(
+                        local_path,
+                        &partial_info,
+                        location.line,
+                        location.character,
+                    );
+                    complete.append(&mut path_completions);
+                }
+                // Also add regular completions
+                let mut cached_completion = get_cached_completion(local_path, documents).await;
+                if !cached_completion.is_empty() {
+                    complete.append(&mut cached_completion);
+                }
+                if let Some(mut cmake_cache) = fileapi::get_complete_data() {
+                    complete.append(&mut cmake_cache);
+                }
+                if let Ok(messages) = &*BUILTIN_VARIABLE {
+                    complete.append(&mut messages.clone());
+                }
+            }
+        }
+        PositionType::Directory => {
+            // Get partial path from current position
+            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+
+            // If input looks like a path, show ONLY path completions
+            if path_complete::looks_like_path(&partial_info.path) {
+                let mut path_completions = path_complete::get_directory_completions(
+                    local_path,
+                    &partial_info,
+                    location.line,
+                    location.character,
+                );
+                complete.append(&mut path_completions);
+            } else {
+                // Show path completions for empty input
+                if partial_info.path.is_empty() {
+                    let mut path_completions = path_complete::get_directory_completions(
+                        local_path,
+                        &partial_info,
+                        location.line,
+                        location.character,
+                    );
+                    complete.append(&mut path_completions);
+                }
+                // Also add regular completions
+                let mut cached_completion = get_cached_completion(local_path, documents).await;
+                if !cached_completion.is_empty() {
+                    complete.append(&mut cached_completion);
+                }
+                if let Some(mut cmake_cache) = fileapi::get_complete_data() {
+                    complete.append(&mut cmake_cache);
+                }
+                if let Ok(messages) = &*BUILTIN_VARIABLE {
+                    complete.append(&mut messages.clone());
+                }
             }
         }
         PositionType::Comment => {
             client.log_message(MessageType::INFO, "Empty").await;
             return None;
         }
-        _ => {}
+        PositionType::Unknown | PositionType::FunOrMacroArgs | PositionType::FunOrMacroIdentifier => {
+            // For unknown/error positions, check if input looks like a path
+            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+            if path_complete::looks_like_path(&partial_info.path) {
+                let mut path_completions = path_complete::get_any_file_completions(
+                    local_path,
+                    &partial_info,
+                    location.line,
+                    location.character,
+                );
+                complete.append(&mut path_completions);
+            }
+        }
     }
 
     if complete.is_empty() {
@@ -299,11 +475,24 @@ fn getsubcomplete<P: AsRef<Path>>(
                 if line_comment_tmp.is_node_comment(h) {
                     document_info = format!("{}\n\n{}", document_info, line_comment_tmp.comment());
                 }
+
+                // Add snippet with parentheses if client supports it
+                let (insert_text, insert_text_format) = if to_use_snippet() {
+                    (
+                        Some(format!("{}($0)", name)),
+                        Some(InsertTextFormat::SNIPPET),
+                    )
+                } else {
+                    (None, None)
+                };
+
                 complete.push(CompletionItem {
                     label: name.to_string(),
                     kind: Some(CompletionItemKind::FUNCTION),
                     detail: Some("Function".to_string()),
                     documentation: Some(Documentation::String(document_info)),
+                    insert_text,
+                    insert_text_format,
                     ..Default::default()
                 });
             }
@@ -329,11 +518,23 @@ fn getsubcomplete<P: AsRef<Path>>(
                     document_info = format!("{}\n\n{}", document_info, line_comment_tmp.comment());
                 }
 
+                // Add snippet with parentheses if client supports it
+                let (insert_text, insert_text_format) = if to_use_snippet() {
+                    (
+                        Some(format!("{}($0)", name)),
+                        Some(InsertTextFormat::SNIPPET),
+                    )
+                } else {
+                    (None, None)
+                };
+
                 complete.push(CompletionItem {
                     label: name.to_string(),
                     kind: Some(CompletionItemKind::FUNCTION),
-                    detail: Some("Function".to_string()),
+                    detail: Some("Macro".to_string()),
                     documentation: Some(Documentation::String(document_info)),
+                    insert_text,
+                    insert_text_format,
                     ..Default::default()
                 });
             }

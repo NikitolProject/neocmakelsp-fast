@@ -199,6 +199,10 @@ pub enum PositionType<'a> {
     TargetInclude,
     TargetLink,
     Comment,
+    // Path completion types
+    SourceFile,   // add_executable, add_library, target_sources - source files (.c, .cpp, .h, etc.)
+    AnyFile,      // file(READ/STRINGS/COPY), configure_file, install(FILES), source_group
+    Directory,    // install(DIRECTORY)
 }
 
 fn location_range_contain(location: Point, range_node: Node) -> bool {
@@ -279,6 +283,14 @@ fn get_pos_type_inner<'a>(
                     "add_subdirectory" => PositionType::SubDir,
                     "target_include_directories" => PositionType::TargetInclude,
                     "target_link_libraries" => PositionType::TargetLink,
+                    // Source file commands
+                    "add_executable" | "add_library" | "target_sources" => PositionType::SourceFile,
+                    // Any file commands
+                    "configure_file" | "source_group" | "set_source_files_properties"
+                    | "get_filename_component" | "cmake_path" => PositionType::AnyFile,
+                    // file() and install() need special handling based on subcommand
+                    // For now, treat them as AnyFile
+                    "file" | "install" => PositionType::AnyFile,
                     _ => PositionType::VarOrFun,
                 }
             }
@@ -316,9 +328,12 @@ fn get_pos_type_inner<'a>(
             | CMakeNodeKinds::VARIABLE_REF
             | CMakeNodeKinds::VARIABLE => PositionType::VarOrFun,
             CMakeNodeKinds::ARGUMENT => match input_type {
-                PositionType::FindPackage | PositionType::SubDir | PositionType::Include => {
-                    input_type
-                }
+                PositionType::FindPackage
+                | PositionType::SubDir
+                | PositionType::Include
+                | PositionType::SourceFile
+                | PositionType::AnyFile
+                | PositionType::Directory => input_type,
                 #[cfg(unix)]
                 PositionType::FindPkgConfig => input_type,
                 _ => PositionType::VarOrFun,
@@ -352,6 +367,18 @@ fn get_pos_type_inner<'a>(
                         if SPECIALCOMMANDS.contains(&name.as_str()) {
                             return PositionType::Unknown;
                         }
+                    }
+                    return jumptype;
+                }
+                // For path-related types, preserve the jumptype even when inner is VarOrFun
+                // This allows complete.rs to check if input looks like a path
+                PositionType::SourceFile
+                | PositionType::AnyFile
+                | PositionType::Directory => {
+                    let inner_type = get_pos_type_inner(location, child, source, jumptype);
+                    // Only return VarOrFun if cursor is on a variable reference ${...}
+                    if matches!(inner_type, PositionType::FindPackageSpace(_)) {
+                        return inner_type;
                     }
                     return jumptype;
                 }
@@ -584,4 +611,59 @@ endmacro()
             PositionType::FunOrMacroIdentifier
         );
     }
+
+    #[test]
+    fn test_incomplete_command_pos_type() {
+        // Test what position type we get for incomplete commands (without closing paren)
+        let source = "add_executable(my_app ./";
+        let mut parse = tree_sitter::Parser::new();
+        parse.set_language(&TREESITTER_CMAKE_LANGUAGE).unwrap();
+        let tree = parse.parse(source, None).unwrap();
+        let input = tree.root_node();
+
+        // Print tree structure for debugging
+        println!("Tree for incomplete command:");
+        print_tree_debug(input, source, 0);
+
+        // Position at the end (after "./" - column 24)
+        let pos_type = get_pos_type(Point { row: 0, column: 24 }, input, source);
+        println!("Position type at column 24: {:?}", pos_type);
+
+        // Position inside "./" - column 23
+        let pos_type_23 = get_pos_type(Point { row: 0, column: 23 }, input, source);
+        println!("Position type at column 23: {:?}", pos_type_23);
+
+        // We expect VarOrFun because tree-sitter creates ERROR node for incomplete commands
+        // The path detection should happen in complete.rs using looks_like_path()
+    }
+
+    fn print_tree_debug(node: tree_sitter::Node, source: &str, indent: usize) {
+        let indent_str = "  ".repeat(indent);
+        let start = node.start_position();
+        let end = node.end_position();
+
+        let text = if start.row == end.row && end.column > start.column {
+            let end_col = end.column.min(source.len());
+            if end_col > start.column {
+                format!(" '{}'", &source[start.column..end_col])
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
+        println!("{}{} [{},{}]-[{},{}]{}",
+            indent_str, node.kind(),
+            start.row, start.column,
+            end.row, end.column,
+            text
+        );
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            print_tree_debug(child, source, indent + 1);
+        }
+    }
 }
+

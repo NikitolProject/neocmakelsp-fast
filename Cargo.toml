@@ -1,14 +1,13 @@
 [package]
-name = "neocmakelsp"
-version = "0.10.0"
+name = "neocmakelsp-fast"
+version = "0.10.3"
 edition = "2024"
 license = "MIT"
-description = "The Lsp for cmake"
-repository = "https://github.com/neocmakelsp/neocmakelsp"
-authors = ["Decodertalkers <aakari@tutanota.com>"]
-keywords = ["lsp"]
+description = "Fast LSP for CMake (fork of neocmakelsp with performance optimizations)"
+repository = "https://github.com/NikitolProject/neocmakelsp-fast"
+authors = ["Decodertalkers <aakari@tutanota.com>", "Nikita Tolstov <tolnikita556@gmail.com>"]
+keywords = ["lsp", "cmake"]
 rust-version = "1.89.0"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.100"
@@ -32,6 +31,9 @@ tracing-subscriber = "0.3.22"
 tree-sitter = "0.26.5"
 tree-sitter-cmake = "0.7.1"
 treesitter_kind_collector = "0.2.0"
+notify = "8.2.0"
+num_cpus = "1.17"
+tempfile = "3.24.0"
 
 [target.'cfg(windows)'.dependencies]
 path-absolutize = "3.1.1"
