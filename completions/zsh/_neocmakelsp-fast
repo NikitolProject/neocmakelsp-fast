@@ -1,5 +1,5 @@
-#compdef neocmakelsp
-function _clap_dynamic_completer_neocmakelsp() {
+#compdef neocmakelsp-fast
+function _clap_dynamic_completer_neocmakelsp_fast() {
     local _CLAP_COMPLETE_INDEX=$(expr $CURRENT - 1)
     local _CLAP_IFS=$'\n'
 
@@ -7,7 +7,7 @@ function _clap_dynamic_completer_neocmakelsp() {
         _CLAP_IFS="$_CLAP_IFS" \
         _CLAP_COMPLETE_INDEX="$_CLAP_COMPLETE_INDEX" \
         COMPLETE="zsh" \
-        neocmakelsp -- "${words[@]}" 2>/dev/null \
+        neocmakelsp-fast -- "${words[@]}" 2>/dev/null \
     )}")
 
     if [[ -n $completions ]]; then
@@ -33,4 +33,4 @@ function _clap_dynamic_completer_neocmakelsp() {
     fi
 }
 
-compdef _clap_dynamic_completer_neocmakelsp neocmakelsp
+compdef _clap_dynamic_completer_neocmakelsp_fast neocmakelsp-fast

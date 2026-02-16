@@ -16,10 +16,10 @@ fn compare_shell_completions(shell: &str, completion_script: &str) {
 
 #[test]
 fn verify_bash_completions() {
-    compare_shell_completions("bash", include_str!("../completions/bash/neocmakelsp"));
+    compare_shell_completions("bash", include_str!("../completions/bash/neocmakelsp-fast"));
 }
 
 #[test]
 fn verify_zsh_completions() {
-    compare_shell_completions("zsh", include_str!("../completions/zsh/_neocmakelsp"));
+    compare_shell_completions("zsh", include_str!("../completions/zsh/_neocmakelsp-fast"));
 }

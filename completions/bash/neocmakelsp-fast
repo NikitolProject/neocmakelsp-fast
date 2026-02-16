@@ -1,5 +1,5 @@
 
-_clap_complete_neocmakelsp() {
+_clap_complete_neocmakelsp_fast() {
     local IFS=$'\013'
     local _CLAP_COMPLETE_INDEX=${COMP_CWORD}
     local _CLAP_COMPLETE_COMP_TYPE=${COMP_TYPE}
@@ -18,7 +18,7 @@ _clap_complete_neocmakelsp() {
         _CLAP_COMPLETE_COMP_TYPE="$_CLAP_COMPLETE_COMP_TYPE" \
         _CLAP_COMPLETE_SPACE="$_CLAP_COMPLETE_SPACE" \
         COMPLETE="bash" \
-        "neocmakelsp" -- "${words[@]}" \
+        "neocmakelsp-fast" -- "${words[@]}" \
     ) )
     if [[ $? != 0 ]]; then
         unset COMPREPLY
@@ -27,8 +27,8 @@ _clap_complete_neocmakelsp() {
     fi
 }
 if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
-    complete -o nospace -o bashdefault -o nosort -F _clap_complete_neocmakelsp neocmakelsp
+    complete -o nospace -o bashdefault -o nosort -F _clap_complete_neocmakelsp_fast neocmakelsp-fast
 else
-    complete -o nospace -o bashdefault -F _clap_complete_neocmakelsp neocmakelsp
+    complete -o nospace -o bashdefault -F _clap_complete_neocmakelsp_fast neocmakelsp-fast
 fi
 
