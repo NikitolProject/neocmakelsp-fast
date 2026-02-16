@@ -144,7 +144,10 @@ fn scan_directory_internal<P: AsRef<Path>>(dir: P, options: &ScanOptions) -> Vec
             continue;
         }
 
-        let extension = path.extension().and_then(|e| e.to_str()).map(|s| s.to_string());
+        let extension = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|s| s.to_string());
         if let Some(ref allowed_exts) = options.extensions
             && !is_dir
         {
@@ -188,7 +191,10 @@ fn scan_directory_full<P: AsRef<Path>>(dir: P) -> Vec<CachedEntry> {
 
             let is_dir = path.is_dir();
             let is_hidden = name.starts_with('.');
-            let extension = path.extension().and_then(|e| e.to_str()).map(|s| s.to_string());
+            let extension = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|s| s.to_string());
             let has_cmake = if is_dir {
                 path.join("CMakeLists.txt").exists()
             } else {
@@ -278,7 +284,10 @@ pub fn scan_directory_recursive<P: AsRef<Path>>(
                 return ignore::WalkState::Continue;
             }
 
-            let extension = path.extension().and_then(|e| e.to_str()).map(|s| s.to_string());
+            let extension = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|s| s.to_string());
 
             if let Some(ref allowed_exts) = options.extensions
                 && !is_dir

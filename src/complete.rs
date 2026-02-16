@@ -143,7 +143,8 @@ pub async fn getcomplete<P: AsRef<Path>>(
         | PositionType::TargetInclude
         | PositionType::ArgumentOrList => {
             // Check if input looks like a path - if so, return ONLY path completions
-            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+            let partial_info =
+                path_complete::extract_partial_path(source, location.line, location.character);
             if path_complete::looks_like_path(&partial_info.path) {
                 let mut path_completions = path_complete::get_any_file_completions(
                     local_path,
@@ -198,7 +199,8 @@ pub async fn getcomplete<P: AsRef<Path>>(
         }
         PositionType::Include => {
             // Get partial path from current position
-            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+            let partial_info =
+                path_complete::extract_partial_path(source, location.line, location.character);
 
             // If input looks like a path, show ONLY path completions
             if path_complete::looks_like_path(&partial_info.path) {
@@ -235,7 +237,8 @@ pub async fn getcomplete<P: AsRef<Path>>(
         }
         PositionType::SubDir => {
             // Get partial path from current position
-            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+            let partial_info =
+                path_complete::extract_partial_path(source, location.line, location.character);
 
             // Add directory completions
             let mut path_completions = path_complete::get_subdirectory_completions(
@@ -248,7 +251,8 @@ pub async fn getcomplete<P: AsRef<Path>>(
         }
         PositionType::SourceFile => {
             // Get partial path from current position
-            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+            let partial_info =
+                path_complete::extract_partial_path(source, location.line, location.character);
 
             // If input looks like a path, show ONLY path completions
             if path_complete::looks_like_path(&partial_info.path) {
@@ -285,7 +289,8 @@ pub async fn getcomplete<P: AsRef<Path>>(
         }
         PositionType::AnyFile => {
             // Get partial path from current position
-            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+            let partial_info =
+                path_complete::extract_partial_path(source, location.line, location.character);
 
             // If input looks like a path, show ONLY path completions
             if path_complete::looks_like_path(&partial_info.path) {
@@ -322,7 +327,8 @@ pub async fn getcomplete<P: AsRef<Path>>(
         }
         PositionType::Directory => {
             // Get partial path from current position
-            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+            let partial_info =
+                path_complete::extract_partial_path(source, location.line, location.character);
 
             // If input looks like a path, show ONLY path completions
             if path_complete::looks_like_path(&partial_info.path) {
@@ -361,9 +367,12 @@ pub async fn getcomplete<P: AsRef<Path>>(
             client.log_message(MessageType::INFO, "Empty").await;
             return None;
         }
-        PositionType::Unknown | PositionType::FunOrMacroArgs | PositionType::FunOrMacroIdentifier => {
+        PositionType::Unknown
+        | PositionType::FunOrMacroArgs
+        | PositionType::FunOrMacroIdentifier => {
             // For unknown/error positions, check if input looks like a path
-            let partial_info = path_complete::extract_partial_path(source, location.line, location.character);
+            let partial_info =
+                path_complete::extract_partial_path(source, location.line, location.character);
             if path_complete::looks_like_path(&partial_info.path) {
                 let mut path_completions = path_complete::get_any_file_completions(
                     local_path,

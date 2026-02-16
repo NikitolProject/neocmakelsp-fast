@@ -65,8 +65,7 @@ async fn run_watcher(mut cmd_rx: mpsc::UnboundedReceiver<WatchCommand>) {
                 let _ = event_tx.send(event);
             }
         },
-        Config::default()
-            .with_poll_interval(Duration::from_secs(2))
+        Config::default().with_poll_interval(Duration::from_secs(2)),
     );
 
     let mut watcher = match watcher_result {
@@ -114,7 +113,9 @@ fn handle_fs_event(event: Event) {
         event.kind,
         EventKind::Create(CreateKind::File | CreateKind::Folder)
             | EventKind::Remove(RemoveKind::File | RemoveKind::Folder)
-            | EventKind::Modify(ModifyKind::Name(RenameMode::Both | RenameMode::From | RenameMode::To))
+            | EventKind::Modify(ModifyKind::Name(
+                RenameMode::Both | RenameMode::From | RenameMode::To
+            ))
     );
 
     if !should_invalidate {

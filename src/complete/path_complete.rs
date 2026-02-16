@@ -9,7 +9,7 @@ use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionTextEdit, Position, Range, TextEdit,
 };
 
-use crate::scanner::{scan_directory, CachedEntry, ScanOptions};
+use crate::scanner::{CachedEntry, ScanOptions, scan_directory};
 
 /// Result of extracting partial path - includes the path and its start position
 #[derive(Debug, Clone)]
@@ -26,10 +26,7 @@ pub fn looks_like_path(partial: &str) -> bool {
     }
 
     // Starts with path-like characters
-    if partial.starts_with('.')
-        || partial.starts_with('/')
-        || partial.starts_with('~')
-    {
+    if partial.starts_with('.') || partial.starts_with('/') || partial.starts_with('~') {
         return true;
     }
 
@@ -240,7 +237,12 @@ pub fn get_include_path_completions<P: AsRef<Path>>(
 
     let entries = scan_directory(&search_dir, &ScanOptions::for_include());
 
-    entries_to_completions(entries, &prefix, replace_range, &CompletionOptions::default())
+    entries_to_completions(
+        entries,
+        &prefix,
+        replace_range,
+        &CompletionOptions::default(),
+    )
 }
 
 /// Get path completions for source file commands (add_executable, add_library, target_sources).
@@ -266,7 +268,12 @@ pub fn get_source_file_completions<P: AsRef<Path>>(
 
     let entries = scan_directory(&search_dir, &ScanOptions::for_source_files());
 
-    entries_to_completions(entries, &prefix, replace_range, &CompletionOptions::default())
+    entries_to_completions(
+        entries,
+        &prefix,
+        replace_range,
+        &CompletionOptions::default(),
+    )
 }
 
 /// Get path completions for any file commands (file(), configure_file, install(FILES), etc.).
@@ -292,7 +299,12 @@ pub fn get_any_file_completions<P: AsRef<Path>>(
 
     let entries = scan_directory(&search_dir, &ScanOptions::for_any_file());
 
-    entries_to_completions(entries, &prefix, replace_range, &CompletionOptions::default())
+    entries_to_completions(
+        entries,
+        &prefix,
+        replace_range,
+        &CompletionOptions::default(),
+    )
 }
 
 /// Get path completions for directory commands (install(DIRECTORY)).
@@ -318,7 +330,12 @@ pub fn get_directory_completions<P: AsRef<Path>>(
 
     let entries = scan_directory(&search_dir, &ScanOptions::for_directory());
 
-    entries_to_completions(entries, &prefix, replace_range, &CompletionOptions::default())
+    entries_to_completions(
+        entries,
+        &prefix,
+        replace_range,
+        &CompletionOptions::default(),
+    )
 }
 
 #[cfg(test)]

@@ -200,10 +200,10 @@ pub enum PositionType<'a> {
     TargetLink,
     Comment,
     // Path completion types
-    SourceFile,   // add_executable, add_library, target_sources - source files (.c, .cpp, .h, etc.)
-    AnyFile,      // file(READ/STRINGS/COPY), configure_file, install(FILES), source_group
+    SourceFile, // add_executable, add_library, target_sources - source files (.c, .cpp, .h, etc.)
+    AnyFile,    // file(READ/STRINGS/COPY), configure_file, install(FILES), source_group
     #[allow(dead_code)]
-    Directory,    // install(DIRECTORY) - TODO: implement subcommand parsing
+    Directory, // install(DIRECTORY) - TODO: implement subcommand parsing
 }
 
 fn location_range_contain(location: Point, range_node: Node) -> bool {
@@ -287,8 +287,11 @@ fn get_pos_type_inner<'a>(
                     // Source file commands
                     "add_executable" | "add_library" | "target_sources" => PositionType::SourceFile,
                     // Any file commands
-                    "configure_file" | "source_group" | "set_source_files_properties"
-                    | "get_filename_component" | "cmake_path" => PositionType::AnyFile,
+                    "configure_file"
+                    | "source_group"
+                    | "set_source_files_properties"
+                    | "get_filename_component"
+                    | "cmake_path" => PositionType::AnyFile,
                     // file() and install() need special handling based on subcommand
                     // For now, treat them as AnyFile
                     "file" | "install" => PositionType::AnyFile,
@@ -373,9 +376,7 @@ fn get_pos_type_inner<'a>(
                 }
                 // For path-related types, preserve the jumptype even when inner is VarOrFun
                 // This allows complete.rs to check if input looks like a path
-                PositionType::SourceFile
-                | PositionType::AnyFile
-                | PositionType::Directory => {
+                PositionType::SourceFile | PositionType::AnyFile | PositionType::Directory => {
                     let inner_type = get_pos_type_inner(location, child, source, jumptype);
                     // Only return VarOrFun if cursor is on a variable reference ${...}
                     if matches!(inner_type, PositionType::FindPackageSpace(_)) {
@@ -654,10 +655,14 @@ endmacro()
             String::new()
         };
 
-        println!("{}{} [{},{}]-[{},{}]{}",
-            indent_str, node.kind(),
-            start.row, start.column,
-            end.row, end.column,
+        println!(
+            "{}{} [{},{}]-[{},{}]{}",
+            indent_str,
+            node.kind(),
+            start.row,
+            start.column,
+            end.row,
+            end.column,
             text
         );
 
@@ -667,4 +672,3 @@ endmacro()
         }
     }
 }
-

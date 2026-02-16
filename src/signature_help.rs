@@ -8,9 +8,9 @@ use tower_lsp::lsp_types::{
 };
 use tree_sitter::{Node, Point};
 
+use crate::CMakeNodeKinds;
 use crate::consts::TREESITTER_CMAKE_LANGUAGE;
 use crate::utils::treehelper::ToPoint;
-use crate::CMakeNodeKinds;
 
 /// Parsed signature information for a CMake command
 #[derive(Debug, Clone)]
@@ -42,8 +42,7 @@ fn parse_signatures_from_help(raw_info: &str) -> HashMap<String, Vec<CMakeSignat
     for (key, content) in keys.iter().zip(contents) {
         // Find all signature patterns like: command_name(<args>)
         let sig_pattern = format!(r"(?m)^\s*{}\s*\(([^)]*)\)", regex::escape(key));
-        let sig_re =
-            regex::Regex::new(&sig_pattern).unwrap_or_else(|_| fallback_re.clone());
+        let sig_re = regex::Regex::new(&sig_pattern).unwrap_or_else(|_| fallback_re.clone());
 
         let mut cmd_signatures = Vec::new();
 
@@ -135,14 +134,15 @@ fn parse_parameters(args_str: &str) -> Vec<String> {
 }
 
 /// Lazy-loaded signature storage
-pub static COMMAND_SIGNATURES: LazyLock<HashMap<String, Vec<CMakeSignature>>> = LazyLock::new(|| {
-    if let Ok(output) = Command::new("cmake").arg("--help-commands").output() {
-        let temp = String::from_utf8_lossy(&output.stdout);
-        parse_signatures_from_help(&temp)
-    } else {
-        HashMap::new()
-    }
-});
+pub static COMMAND_SIGNATURES: LazyLock<HashMap<String, Vec<CMakeSignature>>> =
+    LazyLock::new(|| {
+        if let Ok(output) = Command::new("cmake").arg("--help-commands").output() {
+            let temp = String::from_utf8_lossy(&output.stdout);
+            parse_signatures_from_help(&temp)
+        } else {
+            HashMap::new()
+        }
+    });
 
 /// Initialize signature data (called at startup)
 pub fn init_signatures() {

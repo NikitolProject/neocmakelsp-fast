@@ -222,8 +222,7 @@ impl LanguageServer for Backend {
                                 continue;
                             };
                             let file_name = file_name.to_string_lossy().to_string();
-                            if file_name.starts_with("cache-v2") && file_name.ends_with(".json")
-                            {
+                            if file_name.starts_with("cache-v2") && file_name.ends_with(".json") {
                                 fileapi::update_cache_data(file_path);
                                 break;
                             }
@@ -644,10 +643,7 @@ impl LanguageServer for Backend {
         }
     }
 
-    async fn signature_help(
-        &self,
-        params: SignatureHelpParams,
-    ) -> Result<Option<SignatureHelp>> {
+    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
         let position = params.text_document_position_params.position;
         let uri = params.text_document_position_params.text_document.uri;
         let Some(text) = self.documents.get(&uri) else {
