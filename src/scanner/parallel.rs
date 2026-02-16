@@ -145,12 +145,12 @@ fn scan_directory_internal<P: AsRef<Path>>(dir: P, options: &ScanOptions) -> Vec
         }
 
         let extension = path.extension().and_then(|e| e.to_str()).map(|s| s.to_string());
-        if let Some(ref allowed_exts) = options.extensions {
-            if !is_dir {
-                match &extension {
-                    Some(ext) if allowed_exts.contains(ext) => {}
-                    _ => continue,
-                }
+        if let Some(ref allowed_exts) = options.extensions
+            && !is_dir
+        {
+            match &extension {
+                Some(ext) if allowed_exts.contains(ext) => {}
+                _ => continue,
             }
         }
 
@@ -220,12 +220,12 @@ fn filter_entries(entries: Vec<CachedEntry>, options: &ScanOptions) -> Vec<Cache
                 return false;
             }
 
-            if let Some(ref allowed_exts) = options.extensions {
-                if !entry.is_dir {
-                    match &entry.extension {
-                        Some(ext) if allowed_exts.contains(ext) => {}
-                        _ => return false,
-                    }
+            if let Some(ref allowed_exts) = options.extensions
+                && !entry.is_dir
+            {
+                match &entry.extension {
+                    Some(ext) if allowed_exts.contains(ext) => {}
+                    _ => return false,
                 }
             }
 
@@ -234,6 +234,7 @@ fn filter_entries(entries: Vec<CachedEntry>, options: &ScanOptions) -> Vec<Cache
         .collect()
 }
 
+#[allow(dead_code)]
 pub fn scan_directory_recursive<P: AsRef<Path>>(
     dir: P,
     options: &ScanOptions,
@@ -279,12 +280,12 @@ pub fn scan_directory_recursive<P: AsRef<Path>>(
 
             let extension = path.extension().and_then(|e| e.to_str()).map(|s| s.to_string());
 
-            if let Some(ref allowed_exts) = options.extensions {
-                if !is_dir {
-                    match &extension {
-                        Some(ext) if allowed_exts.contains(ext) => {}
-                        _ => return ignore::WalkState::Continue,
-                    }
+            if let Some(ref allowed_exts) = options.extensions
+                && !is_dir
+            {
+                match &extension {
+                    Some(ext) if allowed_exts.contains(ext) => {}
+                    _ => return ignore::WalkState::Continue,
                 }
             }
 

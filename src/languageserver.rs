@@ -194,46 +194,44 @@ impl LanguageServer for Backend {
                 watch_file.dynamic_registration,
                 watch_file.relative_pattern_support,
             )
-        {
-            if let Some(ref top_path) = initial
+            && let Some(ref top_path) = initial
                 .workspace_folders
                 .as_ref()
                 .and_then(|folders| folders.first())
                 .and_then(|folder| folder.uri.to_file_path().ok())
-            {
-                let path = top_path.join("build").join("CMakeCache.txt");
-                if path.exists() {
-                    filewatcher::refresh_error_packages(path);
-                }
+        {
+            let path = top_path.join("build").join("CMakeCache.txt");
+            if path.exists() {
+                filewatcher::refresh_error_packages(path);
+            }
 
-                tracing::info!("find cache-v2 json, start reading the data");
-                let cache_path = top_path
-                    .join("build")
-                    .join(".cmake")
-                    .join("api")
-                    .join("v1")
-                    .join("reply");
-                if cache_path.is_dir() {
-                    use std::fs;
-                    if let Ok(entries) = fs::read_dir(cache_path) {
-                        for entry in entries.flatten() {
-                            let file_path = entry.path();
-                            if file_path.is_file() {
-                                let Some(file_name) = file_path.file_name() else {
-                                    continue;
-                                };
-                                let file_name = file_name.to_string_lossy().to_string();
-                                if file_name.starts_with("cache-v2") && file_name.ends_with(".json")
-                                {
-                                    fileapi::update_cache_data(file_path);
-                                    break;
-                                }
+            tracing::info!("find cache-v2 json, start reading the data");
+            let cache_path = top_path
+                .join("build")
+                .join(".cmake")
+                .join("api")
+                .join("v1")
+                .join("reply");
+            if cache_path.is_dir() {
+                use std::fs;
+                if let Ok(entries) = fs::read_dir(cache_path) {
+                    for entry in entries.flatten() {
+                        let file_path = entry.path();
+                        if file_path.is_file() {
+                            let Some(file_name) = file_path.file_name() else {
+                                continue;
+                            };
+                            let file_name = file_name.to_string_lossy().to_string();
+                            if file_name.starts_with("cache-v2") && file_name.ends_with(".json")
+                            {
+                                fileapi::update_cache_data(file_path);
+                                break;
                             }
                         }
                     }
                 }
-                tracing::info!("Finish getting the data in cache-v2 json");
             }
+            tracing::info!("Finish getting the data in cache-v2 json");
         }
 
         if let Some(ref project_root) = initial

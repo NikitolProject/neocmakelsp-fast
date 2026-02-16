@@ -19,6 +19,7 @@ pub struct FileWatcherHandle {
 
 enum WatchCommand {
     Watch(PathBuf),
+    #[allow(dead_code)]
     Unwatch(PathBuf),
     Shutdown,
 }
@@ -30,6 +31,7 @@ impl FileWatcherHandle {
         }
     }
 
+    #[allow(dead_code)]
     pub fn unwatch(&self, path: PathBuf) {
         if let Err(e) = self.watch_tx.send(WatchCommand::Unwatch(path)) {
             warn!("Failed to send unwatch command: {}", e);
@@ -133,11 +135,11 @@ fn handle_fs_event(event: Event) {
     }
 }
 
-pub fn watch_workspace(root: &PathBuf) {
+pub fn watch_workspace(root: &std::path::Path) {
     let Some(watcher) = get_file_watcher() else {
         return;
     };
-    watcher.watch(root.clone());
+    watcher.watch(root.to_path_buf());
     for subdir in ["src", "include", "lib", "cmake", "tests", "test", "modules"] {
         let path = root.join(subdir);
         if path.exists() && path.is_dir() {
@@ -149,9 +151,7 @@ pub fn watch_workspace(root: &PathBuf) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::{self, File};
     use tempfile::tempdir;
-    use tokio::time::sleep;
 
     #[tokio::test]
     async fn test_watcher_initialization() {

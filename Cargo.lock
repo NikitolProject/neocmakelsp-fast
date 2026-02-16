@@ -695,7 +695,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "neocmakelsp"
+name = "neocmakelsp-fast"
 version = "0.10.3"
 dependencies = [
  "anyhow",

@@ -41,6 +41,8 @@ impl DirectoryCache {
         }
     }
 
+    #[cfg(test)]
+    #[allow(dead_code)]
     pub fn with_ttl(ttl: Duration) -> Self {
         Self {
             cache: DashMap::new(),
@@ -79,10 +81,12 @@ impl DirectoryCache {
         self.cache.retain(|path, _| !path.starts_with(root));
     }
 
+    #[allow(dead_code)]
     pub fn clear(&self) {
         self.cache.clear();
     }
 
+    #[allow(dead_code)]
     pub fn cleanup_expired(&self) {
         self.cache.retain(|_, entry| !entry.is_expired(self.ttl));
     }
@@ -105,6 +109,7 @@ impl DirectoryCache {
         }
     }
 
+    #[allow(dead_code)]
     pub fn stats(&self) -> CacheStats {
         let mut expired = 0;
         let mut valid = 0;
@@ -131,6 +136,7 @@ impl Default for DirectoryCache {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct CacheStats {
     pub total: usize,

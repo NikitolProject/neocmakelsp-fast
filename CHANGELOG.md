@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.3] - 2026-02-16
+
+### Fork: neocmakelsp-fast
+
+This is a performance-focused fork of [neocmakelsp](https://github.com/neocmakelsp/neocmakelsp).
+
+### Added
+
+- **Path completion system** - Smart path completions for CMake commands:
+  - `add_subdirectory()` - shows directories with CMakeLists.txt prioritized (✓ marker)
+  - `add_executable()`, `add_library()`, `target_sources()` - shows source files (.c, .cpp, .h, etc.)
+  - `include()` - shows .cmake files
+  - `file()`, `configure_file()`, `install()` - shows all files
+  - Automatic detection of path-like input (starts with `.`, `/`, `~`, or contains `/`)
+
+- **Directory scanning with caching** - New `scanner` module:
+  - `DirectoryCache` with TTL-based expiration (5 seconds default)
+  - LRU eviction when cache exceeds 100 entries
+  - Parallel directory scanning using `ignore` crate (respects .gitignore)
+  - Pre-built scan options for different contexts (subdirectories, source files, includes)
+
+- **File watcher for cache invalidation**:
+  - Watches workspace directories for file system changes
+  - Automatically invalidates cache on file create/delete/rename
+  - Watches common CMake directories: src, include, lib, cmake, tests, modules
+
+- **Signature help for CMake commands**:
+  - Shows function signatures from `cmake --help-commands`
+  - Displays parameter information and documentation
+  - Highlights active parameter based on cursor position
+
+### Changed
+
+- Renamed binary and package to `neocmakelsp-fast`
+- Updated dependencies: added `notify`, `num_cpus`, `tempfile`, `ignore`
+- Extended `PositionType` enum with `SourceFile`, `AnyFile`, `Directory` variants
+- Improved collapsible if statements per clippy recommendations
+
+### Fixed
+
+- Various clippy warnings (unused imports, dead code, collapsible conditions)
+- TOML formatting (alphabetical order of dependencies)
+
+[0.10.3]: https://github.com/NikitolProject/neocmakelsp-fast/compare/v0.10.0...v0.10.3
+
+---
+
+## Upstream Changelog (neocmakelsp)
+
 ## [0.10.0] - 2026-01-26
 
 ### Changed

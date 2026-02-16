@@ -77,7 +77,7 @@ pub fn extract_partial_path(source: &str, line: u32, character: u32) -> PartialP
     // Look for the start of the path argument
     // Could be after: ( " ' or whitespace
     let start_pos = before_cursor
-        .rfind(|c: char| c == '(' || c == '"' || c == '\'' || c == ' ' || c == '\t')
+        .rfind(['(', '"', '\'', ' ', '\t'])
         .map(|pos| pos + 1)
         .unwrap_or(0);
 
@@ -179,16 +179,9 @@ fn entries_to_completions(
 }
 
 /// Options for completion generation
+#[derive(Default)]
 struct CompletionOptions {
     show_cmake_marker: bool,
-}
-
-impl Default for CompletionOptions {
-    fn default() -> Self {
-        Self {
-            show_cmake_marker: false,
-        }
-    }
 }
 
 /// Get path completions for add_subdirectory command.

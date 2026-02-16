@@ -36,12 +36,14 @@ fn parse_signatures_from_help(raw_info: &str) -> HashMap<String, Vec<CMakeSignat
     let contents: Vec<_> = re.split(raw_info).collect();
     let contents = &contents[1..];
 
+    // Fallback regex for when the command-specific pattern fails
+    let fallback_re = regex::Regex::new(r"^\s*\w+\s*\(([^)]*)\)").unwrap();
+
     for (key, content) in keys.iter().zip(contents) {
         // Find all signature patterns like: command_name(<args>)
         let sig_pattern = format!(r"(?m)^\s*{}\s*\(([^)]*)\)", regex::escape(key));
-        let sig_re = regex::Regex::new(&sig_pattern).unwrap_or_else(|_| {
-            regex::Regex::new(r"^\s*\w+\s*\(([^)]*)\)").unwrap()
-        });
+        let sig_re =
+            regex::Regex::new(&sig_pattern).unwrap_or_else(|_| fallback_re.clone());
 
         let mut cmd_signatures = Vec::new();
 

@@ -202,7 +202,8 @@ pub enum PositionType<'a> {
     // Path completion types
     SourceFile,   // add_executable, add_library, target_sources - source files (.c, .cpp, .h, etc.)
     AnyFile,      // file(READ/STRINGS/COPY), configure_file, install(FILES), source_group
-    Directory,    // install(DIRECTORY)
+    #[allow(dead_code)]
+    Directory,    // install(DIRECTORY) - TODO: implement subcommand parsing
 }
 
 fn location_range_contain(location: Point, range_node: Node) -> bool {
