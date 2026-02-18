@@ -25,7 +25,7 @@ regex = "1.12.2"
 rust-ini = "0.21.3"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-tempfile = "3.24.0"
+tempfile = "3.25.0"
 tokio = { version = "1.49.0", features = ["full"] }
 toml = "0.9.11"
 tower-lsp = { version = "0.24.0", package = "tower-lsp-f" }
@@ -41,7 +41,7 @@ path-absolutize = "3.1.1"
 [dev-dependencies]
 assert_cmd = "2.1.2"
 indoc = "2.0.7"
-tempfile = "3.24.0"
+tempfile = "3.25.0"
 tower = { version = "0.5.3", features = ["util"] }
 
 [lints.rust]
